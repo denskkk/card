@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Карта знижок в Одесі</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50: '#e6f1ff',
+              100: '#cce3ff',
+              200: '#99c7ff',
+              300: '#66abff',
+              400: '#338fff',
+              500: '#1a73e8',
+              600: '#1155cc',
+              700: '#0d47a1',
+              800: '#063578',
+              900: '#042454',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+  <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f5f8ff;
+      color: #1a202c;
+    }
+  
+    header {
+      background: linear-gradient(135deg, #1a73e8, #0d47a1);
+      color: white;
+    }
+  
+    #map {
+      height: 70vh;
+      width: 100%;
+      border-radius: 1rem;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    }
+  
+    .place-card {
+      background: white;
+      border-radius: 1rem;
+      box-shadow: 0 4px 6px -1px rgba(26, 115, 232, 0.1);
+      transition: all 0.3s ease;
+      border-left: 4px solid #1a73e8;
+    }
+  
+    .place-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 15px -3px rgba(26, 115, 232, 0.2);
+    }
+    
+    .card-with-discount {
+      border-left: 4px solid #34a853;
+    }
+    
+    .custom-button {
+      background-color: #1a73e8;
+      color: white;
+      transition: all 0.3s ease;
+      border-radius: 0.5rem;
+    }
+  
+    .custom-button:hover {
+      background-color: #0d47a1;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .insta-button {
+      background-color: #e1306c;
+    }
+    
+    .insta-button:hover {
+      background-color: #c13584;
+    }
+    
+    .google-maps-button {
+      background-color: #4285F4;
+    }
+    
+    .google-maps-button:hover {
+      background-color: #3367D6;
+    }
+    
+    .leaflet-control-container .leaflet-routing-container-hide {
+      display: none;
+    }
+
+    .filter-card {
+      border-radius: 1rem;
+      background: white;
+      box-shadow: 0 4px 6px -1px rgba(26, 115, 232, 0.1);
+    }
+
+    .custom-checkbox {
+      accent-color: #1a73e8;
+      width: 1.2rem;
+      height: 1.2rem;
+    }
+    
+    .category-badge {
+      background-color: #e6f1ff;
+      color: #0d47a1;
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 1rem;
+      display: inline-block;
+    }
+    
+    @media (max-width: 768px) {
+      #map {
+        height: 50vh;
+      }
+    }
+
+    .popup-content h3 {
+      font-weight: 600;
+      color: #0d47a1;
+      margin-bottom: 0.25rem;
+    }
+
+    .pulse {
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(26, 115, 232, 0.7);
+      }
+      70% {
+        box-shadow: 0 0 0 10px rgba(26, 115, 232, 0);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(26, 115, 232, 0);
+      }
+    }
+  </style>
+</head>
+<body class="bg-primary-50 text-gray-900">
+  <header class="bg-gradient-to-r from-primary-600 to-primary-800 p-6 md:p-8 text-center shadow-lg">
+    <div class="container mx-auto">
+      <h1 class="text-3xl md:text-4xl font-bold text-white">Інтерактивна карта знижок Mechnykov Student Card в Одесі</h1>
+      <p class="text-primary-100 mt-2 md:mt-3">Знаходьте та отримуйте знижки в найкращих місцях міста</p>
+    </div>
+  </header>
+
+  <div class="container mx-auto px-4 py-6 md:py-8">
+    <main class="flex flex-col lg:flex-row gap-6">
+      <aside class="lg:w-1/4 w-full">
+        <div class="filter-card p-5 md:p-6 mb-4 md:mb-6 bg-white">
+          <h2 class="text-xl font-semibold mb-4 pb-2 border-b border-primary-100 text-primary-700">Фільтри</h2>
+          <form id="filters" class="flex flex-col gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Категорія</label>
+              <select id="category" class="w-full p-2 bg-primary-50 border border-primary-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400">
+                <option value="">Усі категорії</option>
+                <option value="Кав'ярня">Кав'ярня</option>
+                <option value="Ресторан">Ресторан</option>
+                <option value="Мережа квестів">Мережа квестів</option>
+                <option value="Салон краси">Салон краси</option>
+                <option value="Студія краси">Студія краси</option>
+                <option value="Аптека">Аптека</option>
+                <option value="Стоматологія">Стоматологія</option>
+                <option value="Магазин косметики">Магазин косметики</option>
+                <option value="Спа">Спа</option>
+                <option value="Готель">Готель</option>
+                <option value="Клуб">Клуб</option>
+                <option value="Бар">Бар</option>
+                <option value="Музична школа">Музична школа</option>
+                <option value="Броварня">Броварня</option>
+              </select>
+            </div>
+            
+            <div class="flex items-center">
+              <input type="checkbox" id="hasInstagram" class="custom-checkbox">
+              <label for="hasInstagram" class="ml-2 text-gray-700">Заклади в Instagram</label>
+            </div>
+            
+            <div class="mt-4">
+              <h3 class="font-medium mb-2 text-gray-700">Моя локація</h3>
+              <button type="button" id="getLocation" class="pulse w-full custom-button py-3 px-4 rounded-lg flex items-center justify-center">
+                <i class="fas fa-location-arrow mr-2"></i> Використати моє місцезнаходження
+              </button>
+            </div>
+          </form>
+          
+          <div class="mt-6 bg-primary-50 rounded-lg p-4" id="route-controls" style="display: none;">
+            <h3 class="font-medium mb-2 text-primary-700">Маршрут</h3>
+            <div id="route-info" class="p-3 bg-white rounded-lg mt-2 text-sm shadow-sm"></div>
+            <button type="button" id="clearRoute" class="mt-3 w-full bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg transition-all duration-300">
+              <i class="fas fa-times mr-2"></i> Очистити маршрут
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <section class="lg:w-3/4 w-full">
+        <div class="bg-white rounded-xl shadow-md overflow-hidden mb-6">
+          <div id="map"></div>
+        </div>
+        
+        <h2 class="text-xl font-semibold mb-4 text-primary-700 flex items-center">
+          <i class="fas fa-store mr-2"></i> Список закладів
+        </h2>
+        <div id="places-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="bg-primary-800 text-white p-6 mt-10">
+    <div class="container mx-auto text-center">
+      <p>© 2025 Карта знижок в Одесі. Всі права захищені.</p>
+      <p class="mt-2 text-primary-100">Знайдіть найкращі знижки у вашому місті</p>
+    </div>
+  </footer>
+
+  <script>
+    const data = [
+      {
+        name: "Salute",
+        category: "Кав'ярня",
+        address: "пров. Віце-адмірала Жукова, 3/7",
+        discount: "",
+        instagram: "",
+        lat: 46.48382617027832,
+        lng: 30.73484198386453
+      },
+      {
+        name: "Platinum Dent",
+        category: "Стоматологія",
+        address: "вул. Бернардацці, 37",
+        discount: "",
+        instagram: "",
+        lat: 46.41873259309033,
+        lng: 30.754295739682792
+      },
+      {
+        name: "Your master nails",
+        category: "Салон краси",
+        address: "вул. Варненська, 2/2 (фасад)",
+        discount: "",
+        instagram: "",
+        lat: 46.43101505809996,
+        lng: 30.723049068518993
+      },
+      {
+        name: "Сітімед",
+        category: "Аптека",
+        address: "вул. Преображенська, 52",
+        discount: "",
+        instagram: "",
+        lat: 46.479283732445616,
+        lng: 30.732163882013612
+      },
+      {
+        name: "Darkness",
+        category: "Мережа квестів",
+        address: "вул. Преображенська, 34 (пасаж)",
+        discount: "",
+        instagram: "",
+        lat: 46.479268956330344,
+        lng: 30.73220679735679
+      },
+      {
+        name: "Darkness",
+        category: "Мережа квестів",
+        address: "вул. Мечнікова, 88",
+        discount: "",
+        instagram: "",
+        lat: 46.47427173481342,
+        lng: 30.72360153968499
+      },
+      {
+        name: "macaroonna",
+        category: "Кав'ярня",
+        address: "вул. Новосельского, 80",
+        discount: "",
+        instagram: "",
+        lat: 46.481615364926775,
+        lng: 30.726156697356934
+      },
+      {
+        name: "bloom cafe",
+        category: "Кав'ярня",
+        address: "вул. Катериненська, 48",
+        discount: "",
+        instagram: "",
+        lat: 46.477604337006134,
+        lng: 30.737634639685236
+      },
+      {
+        name: "vg.beauty studio",
+        category: "Студія краси",
+        address: "вул. Довженка, 8",
+        discount: "",
+        instagram: "",
+        lat: 46.45599977814048,
+        lng: 30.754941397355857
+      },
+      {
+        name: "vg.beauty studio",
+        category: "Студія краси",
+        address: "вул. Кобелевська, 36",
+        discount: "",
+        instagram: "",
+        lat: 46.48484655537918,
+        lng: 30.727686026192895
+      },
+      {
+        name: "Dushka cosmetics",
+        category: "Магазин косметики",
+        address: "Усі адреси Києва та Одеси",
+        discount: "",
+        instagram: "",
+        lat: 46.48296016104421,
+        lng: 30.732541950735584
+      },
+      {
+        name: "Frenchi29",
+        category: "Кав'ярня",
+        address: "Французький бульвар, 41",
+        discount: "",
+        instagram: "",
+        lat: 46.45670878488052,
+        lng: 30.760119926191745
+      },
+      {
+        name: "riofood",
+        category: "Ресторан",
+        address: "вул. Пушкінська, 66 (Італійська, 66)",
+        discount: "",
+        instagram: "",
+        lat: 46.47181801999401,
+        lng: 30.740628968520927
+      },
+      {
+        name: "hate coffee 01",
+        category: "Кав'ярня",
+        address: "вул. Пішонівська, 27",
+        discount: "",
+        instagram: "",
+        lat: 46.48506290404333,
+        lng: 30.71328665502868
+      },
+      {
+        name: "hate coffee 01",
+        category: "Кав'ярня",
+        address: "вул. Голоківська, 1",
+        discount: "",
+        instagram: "",
+        lat: 46.470590856050315,
+        lng: 30.708965526192223
+      },
+      {
+        name: "hate coffee 01",
+        category: "Кав'ярня",
+        address: "вул. Успенська, 60 (Олександрівський проспект, 26)",
+        discount: "",
+        instagram: "",
+        lat: 46.47657189359754,
+        lng: 30.733805726192543
+      },
+      {
+        name: "hate coffee 01",
+        category: "Кав'ярня",
+        address: "вул. Степова, 56",
+        discount: "",
+        instagram: "",
+        lat: 46.46059680195872,
+        lng: 30.713129268520245
+      },
+      {
+        name: "Outlast Quest",
+        category: "Мережа квестів",
+        address: "пров. Нахімова, 6",
+        discount: "Квест «Цирк жахів»: -200/-300 грн",
+        instagram: "outlast.quest",
+        lat: 46.48377877038143,
+        lng: 30.74989296852135
+      },
+      {
+        name: "Outlast Quest",
+        category: "Мережа квестів",
+        address: "вул. Новосельского, 47",
+        discount: "Квест «Поворот не туди»: -200/-300 грн",
+        instagram: "outlast.quest",
+        lat: 46.48489722988719,
+        lng: 30.72289936852145
+      },
+      {
+        name: "Outlast Quest",
+        category: "Мережа квестів",
+        address: "вул. Асташкіна,1",
+        discount: "Квест «Пікова дама»: -200/-300 грн",
+        instagram: "outlast.quest",
+        lat: 46.47651011688615,
+        lng: 30.724543697356662
+      },
+      {
+        name: "Palladium",
+        category: "Ресторан",
+        address: "Італійський бульвар, 4",
+        discount: "-20% на все меню, крім кальянів",
+        instagram: "palladium_odessa",
+        lat: 46.46856407202176,
+        lng: 30.745476997356448
+      },
+      {
+        name: "Palladium",
+        category: "Спа",
+        address: "Італійський бульвар, 4",
+        discount: "-10% на спа-відпочинок",
+        instagram: "palladium_odessa",
+        lat: 46.46856407202176,
+        lng: 30.745476997356448
+      },
+      {
+        name: "Palladium",
+        category: "Готель",
+        address: "Італійський бульвар, 4",
+        discount: "-15% на номери в готелі",
+        instagram: "palladium_odessa",
+        lat: 46.46856407202176,
+        lng: 30.745476997356448
+      },
+      {
+        name: "Palladium",
+        category: "Клуб",
+        address: "Італійський бульвар, 4",
+        discount: "-10% на їжу та напої в клубі",
+        instagram: "palladium_odessa",
+        lat: 46.46856407202176,
+        lng: 30.745476997356448
+      },
+      {
+        name: "NoName coffee place",
+        category: "Кав'ярня",
+        address: "вул. Довженка, 8",
+        discount: "-10% на кавові напої",
+        instagram: "noname_coffee_place",
+        lat: 46.455955430817,
+        lng: 30.75498431269904
+      },
+      {
+        name: "NoName coffee place",
+        category: "Кав'ярня",
+        address: "вул. Кобелевська, 36",
+        discount: "-10% на кавові напої",
+        instagram: "noname_coffee_place",
+        lat: 46.48486871727844,
+        lng: 30.727718212700278
+      },
+      {
+        name: "Pikovaya Dama",
+        category: "Мережа квестів",
+        address: "вул. Преображенська, 30",
+        discount: "Квест «Закляття»: -200/-300 грн",
+        instagram: "pikovaya.dama.od",
+        lat: 46.4850957039499,
+        lng: 30.7330133550287
+      },
+      {
+        name: "Don't Panic",
+        category: "Мережа квестів",
+        address: "вул. Гоголя, 10",
+        discount: "Квести: -200/-300 грн",
+        instagram: "dontpanic_od",
+        lat: 46.48870809364834,
+        lng: 30.7352940973572
+      },
+      {
+        name: "Sisi coffee",
+        category: "Кав'ярня",
+        address: "вул. Троїцька, 34",
+        discount: "-10% на напої",
+        instagram: "sisi.coffee.od",
+        lat: 46.47712619179126,
+        lng: 30.739116526192653
+      },
+      {
+        name: "TERRANO Coffee",
+        category: "Кав'ярня",
+        address: "Проспект Гагаріна, 23",
+        discount: "-10% на всю продукцію окрім алкогольних виробів",
+        instagram: "terrano.coffee.od",
+        lat: 46.45411140078933,
+        lng: 30.744527855027375
+      },
+      {
+        name: "Смажимо каву у Одесі",
+        category: "Кав'ярня",
+        address: "Проспект Шевченка, 2В",
+        discount: "-15/20% на напої, -15% на каву по вихідних",
+        instagram: "roastingcoffee.shop",
+        lat: 46.456391629869735,
+        lng: 30.750779510848464
+      },
+      {
+        name: "Maria Trattoria",
+        category: "Ресторан",
+        address: "вул. Садова, 15",
+        discount: "-15% на все меню",
+        instagram: "mariatrattoria.od",
+        lat: 46.485820553130814,
+        lng: 30.73078452619292
+      },
+      {
+        name: "Golden Rice",
+        category: "Ресторан",
+        address: "пров. Віце-адмірала Жукова, 3/7",
+        discount: "-15% на все меню",
+        instagram: "goldenrice.od",
+        lat: 46.48387788233253,
+        lng: 30.734799068521358
+      },
+      {
+        name: "Горбушка",
+        category: "Бар",
+        address: "Аркадійська Алея 1а",
+        discount: "-10% на всі послуги",
+        instagram: "gorbushka_odesa",
+        lat: 46.43055625940721,
+        lng: 30.76198381084746
+      },
+      {
+        name: "Фабрика Барабанів",
+        category: "Музична школа",
+        address: "Проспект Шевченка, 15/3а",
+        discount: "-30% на абонемент навчання",
+        instagram: "fb_barabaniv_od",
+        lat: 46.45419416015345,
+        lng: 30.753750654428202
+      },
+      {
+        name: "Bohemian 'Kings Beer'",
+        category: "Броварня",
+        address: "Проспект Шевченка, 8/1",
+        discount: "-10% на весь асортимент",
+        instagram: "bohemian_brewery",
+        lat: 46.45545459714319,
+        lng: 30.75140106852016
+      }
+    ];
+
+    const map = L.map('map').setView([46.4825, 30.7233], 13);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+// Add marker clusters for better performance with many markers
+const markers = [];
+let userMarker = null;
+let userPosition = null;
+let routingControl = null;
+
+// Icon options for different types of locations
+const defaultIcon = L.icon({
+  iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
+const discountIcon = L.icon({
+  iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
+const userLocationIcon = L.icon({
+  iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
+// Get user location
+document.getElementById('getLocation').addEventListener('click', () => {
+  if (navigator.geolocation) {
+    document.getElementById('getLocation').innerText = 'Визначення...';
+    document.getElementById('getLocation').disabled = true;
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        userPosition = [position.coords.latitude, position.coords.longitude];
+        
+        // Add or update user marker
+        if (userMarker) {
+          map.removeLayer(userMarker);
+        }
+        
+        userMarker = L.marker(userPosition, {icon: userLocationIcon}).addTo(map);
+        userMarker.bindPopup('<strong>Ваше місцезнаходження</strong>').openPopup();
+        
+        map.setView(userPosition, 14);
+        
+        document.getElementById('getLocation').innerHTML = '<i class="fas fa-check mr-2"></i> Місцезнаходження визначено';
+        document.getElementById('getLocation').disabled = false;
+        document.getElementById('getLocation').classList.remove('pulse');
+      },
+      (error) => {
+        alert('Неможливо визначити ваше місцезнаходження: ' + error.message);
+        document.getElementById('getLocation').innerHTML = '<i class="fas fa-location-arrow mr-2"></i> Використати моє місцезнаходження';
+        document.getElementById('getLocation').disabled = false;
+      }
+    );
+  } else {
+    alert('Геолокація не підтримується вашим браузером');
+  }
+});
+
+// Create route to selected location
+function createRoute(destinationLat, destinationLng) {
+  if (!userPosition) {
+    alert('Спочатку визначте ваше місцезнаходження');
+    return;
+  }
+  
+  // Remove existing route if any
+  if (routingControl) {
+    map.removeControl(routingControl);
+  }
+  
+  // Create new route
+  routingControl = L.Routing.control({
+    waypoints: [
+      L.latLng(userPosition[0], userPosition[1]),
+      L.latLng(destinationLat, destinationLng)
+    ],
+    routeWhileDragging: true,
+    lineOptions: {
+      styles: [{ color: '#1a73e8', opacity: 0.7, weight: 5 }]
+    },
+    createMarker: function() { return null; }, // Don't create default markers
+    show: false, // Don't show turn-by-turn instructions
+    addWaypoints: false, // Don't allow adding waypoints
+    draggableWaypoints: false // Don't allow dragging waypoints
+  }).addTo(map);
+  
+  routingControl.on('routesfound', function(e) {
+    const routes = e.routes;
+    const summary = routes[0].summary;
+    
+    // Show route info
+    document.getElementById('route-info').innerHTML = `
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-primary-800 font-semibold"><i class="fas fa-route mr-1"></i> Відстань:</p>
+          <p class="font-bold text-lg">${(summary.totalDistance / 1000).toFixed(1)} км</p>
+        </div>
+        <div>
+          <p class="text-primary-800 font-semibold"><i class="fas fa-clock mr-1"></i> Час:</p>
+          <p class="font-bold text-lg">${Math.round(summary.totalTime / 60)} хв.</p>
+        </div>
+      </div>
+    `;
+    document.getElementById('route-controls').style.display = 'block';
+  });
+}
+
+// Clear route
+document.getElementById('clearRoute').addEventListener('click', () => {
+  if (routingControl) {
+    map.removeControl(routingControl);
+    routingControl = null;
+    document.getElementById('route-controls').style.display = 'none';
+  }
+});
+
+// Render markers based on filters
+function renderMarkers(filterCategory, onlyInstagram) {
+  markers.forEach(marker => map.removeLayer(marker));
+  markers.length = 0;
+  document.getElementById("places-list").innerHTML = "";
+
+  data.forEach(place => {
+    if (
+      (!filterCategory || place.category === filterCategory) &&
+      (!onlyInstagram || place.instagram)
+    ) {
+      // Use discount icon for places with discount
+      const markerIcon = place.discount ? discountIcon : defaultIcon;
+      
+      const marker = L.marker([place.lat, place.lng], {icon: markerIcon}).addTo(map);
+      
+      // Create popup content
+      let popupContent = `
+        <div class="popup-content p-1">
+          <h3 class="text-lg">${place.name}</h3>
+          <p class="text-gray-600 text-sm">${place.category}</p>
+          <p class="text-gray-800 text-sm mt-1">${place.address}</p>
+      `;
+      
+      if (place.discount) {
+        popupContent += `<p class="text-green-600 font-medium mt-2">${place.discount}</p>`;
+      }
+      
+      if (place.instagram) {
+        popupContent += `
+          <p class="mt-2">
+            <a href="https://instagram.com/${place.instagram}" target="_blank" class="text-blue-600 hover:underline">
+              <i class="fab fa-instagram"></i> @${place.instagram}
+            </a>
+          </p>
+        `;
+      }
+      
+      popupContent += `
+        <div class="mt-3 flex flex-col gap-2">
+          ${userPosition ? 
+            `<button onclick="createRoute(${place.lat}, ${place.lng})" class="custom-button px-3 py-1 rounded text-sm inline-block w-full">
+              <i class="fas fa-route mr-1"></i> Прокласти маршрут
+            </button>` : ''}
+          <a href="https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}" 
+             target="_blank" class="google-maps-button text-white px-3 py-1 rounded text-sm inline-block text-center">
+            <i class="fas fa-map-marker-alt mr-1"></i> Google Maps
+          </a>
+        </div>
+      </div>`;
+      
+      marker.bindPopup(popupContent);
+      markers.push(marker);
+
+      // Create place card in the list
+      const div = document.createElement('div');
+      div.className = `place-card p-4 rounded-lg shadow-md transition-all duration-300 ${place.discount ? 'card-with-discount' : ''}`;
+      
+      let cardContent = `
+        <div class="flex justify-between items-start">
+          <h3 class='font-bold text-lg text-primary-700'>${place.name}</h3>
+          <span class="category-badge">${place.category}</span>
+        </div>
+        <p class="text-sm mt-2 text-gray-700">${place.address}</p>
+      `;
+      
+      if (place.discount) {
+        cardContent += `<p class="text-green-600 font-medium mt-3 border-t pt-2 border-gray-100">${place.discount}</p>`;
+      }
+      
+      cardContent += `<div class="mt-4 flex flex-wrap gap-2">`;
+      
+      if (place.instagram) {
+        cardContent += `
+          <a href="https://instagram.com/${place.instagram}" target="_blank" class="insta-button text-white py-1 px-3 rounded-lg text-sm flex items-center">
+            <i class="fab fa-instagram mr-1"></i> @${place.instagram}
+          </a>
+        `;
+      }
+      
+      cardContent += `
+        <a href="#" onclick="event.preventDefault(); map.setView([${place.lat}, ${place.lng}], 16); return false;" 
+           class="custom-button py-1 px-3 rounded-lg text-sm flex items-center">
+          <i class="fas fa-map-pin mr-1"></i> На карті
+        </a>
+        
+        <a href="https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}" 
+           target="_blank" class="google-maps-button text-white py-1 px-3 rounded-lg text-sm flex items-center">
+          <i class="fas fa-directions mr-1"></i> Google Maps
+        </a>
+      </div>`;
+      
+      div.innerHTML = cardContent;
+      div.addEventListener('click', function(e) {
+        if (!e.target.closest('a')) {
+          map.setView([place.lat, place.lng], 16);
+          marker.openPopup();
+        }
+      });
+      
+      document.getElementById("places-list").appendChild(div);
+    }
+  });
+}
+
+// Initial render
+renderMarkers();
+
+// Listen for filter changes
+document.getElementById("filters").addEventListener("change", () => {
+  const cat = document.getElementById("category").value;
+  const insta = document.getElementById("hasInstagram").checked;
+  renderMarkers(cat, insta);
+});
+</script>
+</body>
+</html>
