@@ -194,11 +194,11 @@
             </div>
             
             <div class="mt-4">
-              <h3 class="font-medium mb-2 text-gray-700">Моя локація</h3>
-              <button type="button" id="getLocation" class="pulse w-full custom-button py-3 px-4 rounded-lg flex items-center justify-center">
-                <i class="fas fa-location-arrow mr-2"></i> Використати моє місцезнаходження
-              </button>
-            </div>
+                <h3 class="font-medium mb-2 text-gray-700">Наші соціальні мережі</h3>
+                <a href="https://instagram.com/mechnykov_card" target="_blank" id="getLocation" class="pulse w-full insta-button py-3 px-4 rounded-lg flex items-center justify-center">
+                  <i class="fab fa-instagram mr-2"></i> Наш Instagram
+                </a>
+              </div>
           </form>
           
           <div class="mt-6 bg-primary-50 rounded-lg p-4" id="route-controls" style="display: none;">
@@ -599,40 +599,6 @@ const userLocationIcon = L.icon({
   shadowSize: [41, 41]
 });
 
-// Get user location
-document.getElementById('getLocation').addEventListener('click', () => {
-  if (navigator.geolocation) {
-    document.getElementById('getLocation').innerText = 'Визначення...';
-    document.getElementById('getLocation').disabled = true;
-    
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        userPosition = [position.coords.latitude, position.coords.longitude];
-        
-        // Add or update user marker
-        if (userMarker) {
-          map.removeLayer(userMarker);
-        }
-        
-        userMarker = L.marker(userPosition, {icon: userLocationIcon}).addTo(map);
-        userMarker.bindPopup('<strong>Ваше місцезнаходження</strong>').openPopup();
-        
-        map.setView(userPosition, 14);
-        
-        document.getElementById('getLocation').innerHTML = '<i class="fas fa-check mr-2"></i> Місцезнаходження визначено';
-        document.getElementById('getLocation').disabled = false;
-        document.getElementById('getLocation').classList.remove('pulse');
-      },
-      (error) => {
-        alert('Неможливо визначити ваше місцезнаходження: ' + error.message);
-        document.getElementById('getLocation').innerHTML = '<i class="fas fa-location-arrow mr-2"></i> Використати моє місцезнаходження';
-        document.getElementById('getLocation').disabled = false;
-      }
-    );
-  } else {
-    alert('Геолокація не підтримується вашим браузером');
-  }
-});
 
 // Create route to selected location
 function createRoute(destinationLat, destinationLng) {
@@ -736,10 +702,10 @@ function renderMarkers(filterCategory, onlyInstagram) {
             `<button onclick="createRoute(${place.lat}, ${place.lng})" class="custom-button px-3 py-1 rounded text-sm inline-block w-full">
               <i class="fas fa-route mr-1"></i> Прокласти маршрут
             </button>` : ''}
-          <a href="https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}" 
-             target="_blank" class="google-maps-button text-white px-3 py-1 rounded text-sm inline-block text-center">
-            <i class="fas fa-map-marker-alt mr-1"></i> Google Maps
-          </a>
+         <a href="https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}" 
+   target="_blank" class="google-maps-button text-white px-3 py-1 rounded text-sm inline-block text-center">
+  <i class="fas fa-map-marker-alt mr-1 text-white"></i> <span class="text-white">Google Maps</span>
+</a>
         </div>
       </div>`;
       
@@ -780,7 +746,7 @@ function renderMarkers(filterCategory, onlyInstagram) {
         
         <a href="https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}" 
            target="_blank" class="google-maps-button text-white py-1 px-3 rounded-lg text-sm flex items-center">
-          <i class="fas fa-directions mr-1"></i> Google Maps
+          <i class="fas fa-directions mr-1 text-white"></i> Google Maps
         </a>
       </div>`;
       
